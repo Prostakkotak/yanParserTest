@@ -5,9 +5,9 @@ export async function fetchOrganization() {
   return data.organization
 }
 
-export async function fetchReviews(page = 1) {
+export async function fetchReviews(page = 1, perPage = 10) {
   const { data } = await client.get('/organization/reviews', {
-    params: { page },
+    params: { page, per_page: perPage },
   })
   return data
 }

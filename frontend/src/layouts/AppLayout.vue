@@ -4,8 +4,6 @@
       <div class="container layout__header-inner">
         <strong>{{ appName }}</strong>
         <nav class="layout__nav">
-          <RouterLink to="/reviews">Отзывы</RouterLink>
-          <RouterLink to="/settings">Настройки</RouterLink>
           <button class="btn btn-secondary" type="button" @click="onLogout">
             Выйти
           </button>
@@ -20,7 +18,7 @@
 </template>
 
 <script setup>
-import { RouterLink, RouterView, useRouter } from 'vue-router'
+import { RouterView, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 
 const appName = import.meta.env.VITE_APP_NAME || 'YanParser'

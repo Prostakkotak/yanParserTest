@@ -24,7 +24,7 @@ WORKDIR /var/www/html
 
 COPY docker/php/php.ini /usr/local/etc/php/conf.d/99-custom.ini
 COPY docker/php/entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN sed -i 's/\r$//' /usr/local/bin/entrypoint.sh && chmod +x /usr/local/bin/entrypoint.sh
 
 COPY backend/composer.json backend/composer.lock* ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist

@@ -1,58 +1,69 @@
 services:
   mysql:
     image: mysql:8.0
-    restart: always
+    restart: unless-stopped
     environment:
       MYSQL_DATABASE: ${DB_DATABASE:-yanparser}
       MYSQL_USER: ${DB_USERNAME:-yanparser}
-      MYSQL_PASSWORD: ${DB_PASSWORD:-secret}
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?Set DB_ROOT_PASSWORD in .env}
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD:-root}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${DB_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 20
 
   app:
-    image: ${APP_IMAGE:-ghcr.io/example/yanparser/app:latest}
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-    restart: always
+    restart: unless-stopped
     environment:
       APP_NAME: ${APP_NAME:-YanParser}
       APP_ENV: production
       APP_DEBUG: "false"
-      APP_URL: ${APP_URL:-http://localhost}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      APP_KEY: ${APP_KEY:?Set APP_KEY in .env}
+      APP_URL: ${APP_URL:?Set APP_URL in .env}
+      FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env}
       DB_CONNECTION: mysql
       DB_HOST: mysql
       DB_PORT: 3306
       DB_DATABASE: ${DB_DATABASE:-yanparser}
       DB_USERNAME: ${DB_USERNAME:-yanparser}
-      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
       SESSION_DRIVER: database
+      SESSION_DOMAIN: ${SESSION_DOMAIN:-}
       CACHE_STORE: database
       QUEUE_CONNECTION: database
-      SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:-localhost}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+      SANCTUM_STATEFUL_DOMAINS: ${SANCTUM_STATEFUL_DOMAINS:?Set SANCTUM_STATEFUL_DOMAINS in .env}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?Set CORS_ALLOWED_ORIGINS in .env}
       SEED_USER_NAME: ${SEED_USER_NAME:-Admin}
-      SEED_USER_EMAIL: ${SEED_USER_EMAIL:-admin@example.com}
-      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-password}
+      SEED_USER_EMAIL: ${SEED_USER_EMAIL:?Set SEED_USER_EMAIL in .env}
+      SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:?Set SEED_USER_PASSWORD in .env}
+      YANDEX_PARSER_URL: http://parser:8080
+      YANDEX_PARSER_TIMEOUT: ${YANDEX_PARSER_TIMEOUT:-300}
     depends_on:
       mysql:
         condition: service_healthy
+      parser:
+        condition: service_started
+
+  parser:
+    build:
+      context: .
+      dockerfile: docker/python/Dockerfile
+    restart: unless-stopped
+    shm_size: "1gb"
 
   web:
-    image: ${WEB_IMAGE:-ghcr.io/example/yanparser/web:latest}
     build:
       context: .
       dockerfile: docker/nginx/Dockerfile
-    restart: always
+    restart: unless-stopped
     ports:
-      - "${APP_PORT:-80}:80"
+      - "${APP_BIND:-0.0.0.0}:${APP_PORT:-80}:80"
     depends_on:
       - app
 

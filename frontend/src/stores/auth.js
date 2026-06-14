@@ -13,8 +13,14 @@ export const useAuthStore = defineStore('auth', () => {
   async function bootstrap() {
     try {
       user.value = await authApi.fetchUser()
-    } catch {
+    } catch (err) {
       user.value = null
+
+      const status = err.response?.status
+      if (status && status !== 401 && status !== 419) {
+        error.value =
+          err.response?.data?.message || 'Не удалось проверить авторизацию.'
+      }
     } finally {
       initialized.value = true
     }

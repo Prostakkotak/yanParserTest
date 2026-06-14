@@ -17,17 +17,16 @@ const router = createRouter({
       children: [
         {
           path: '',
-          redirect: { name: 'reviews' },
+          name: 'home',
+          component: () => import('@/views/ReviewsView.vue'),
         },
         {
           path: 'settings',
-          name: 'settings',
-          component: () => import('@/views/SettingsView.vue'),
+          redirect: { name: 'home' },
         },
         {
           path: 'reviews',
-          name: 'reviews',
-          component: () => import('@/views/ReviewsView.vue'),
+          redirect: { name: 'home' },
         },
       ],
     },
@@ -50,7 +49,7 @@ router.beforeEach(async (to) => {
   }
 
   if (to.meta.guest && auth.isAuthenticated) {
-    return { name: 'reviews' }
+    return { name: 'home' }
   }
 
   return true

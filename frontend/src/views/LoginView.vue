@@ -44,7 +44,7 @@ async function onSubmit() {
   })
 
   if (ok) {
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/reviews'
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/'
     router.push(redirect)
   }
 }

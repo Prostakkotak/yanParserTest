@@ -44,9 +44,22 @@ services:
       SEED_USER_NAME: ${SEED_USER_NAME:-Admin}
       SEED_USER_EMAIL: ${SEED_USER_EMAIL:-admin@example.com}
       SEED_USER_PASSWORD: ${SEED_USER_PASSWORD:-password}
+      YANDEX_PARSER_URL: ${YANDEX_PARSER_URL:-http://parser:8080}
+      YANDEX_PARSER_TIMEOUT: ${YANDEX_PARSER_TIMEOUT:-300}
     depends_on:
       mysql:
         condition: service_healthy
+      parser:
+        condition: service_started
+
+  parser:
+    build:
+      context: .
+      dockerfile: docker/python/Dockerfile
+    restart: unless-stopped
+    shm_size: "1gb"
+    ports:
+      - "${PARSER_PORT:-8081}:8080"
 
   nginx:
     image: nginx:1.27-alpine
