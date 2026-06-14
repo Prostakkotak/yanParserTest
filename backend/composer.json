@@ -2,6 +2,7 @@
     "name": "yanparser/backend",
     "type": "project",
     "description": "Yandex organization reviews API",
+    "license": "proprietary",
     "require": {
         "php": "^8.2",
         "laravel/framework": "^11.31",

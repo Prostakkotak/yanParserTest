@@ -24,7 +24,7 @@ services:
       APP_NAME: ${APP_NAME:-YanParser}
       APP_ENV: production
       APP_DEBUG: "false"
-      APP_KEY: ${APP_KEY:?Set APP_KEY in .env}
+      APP_KEY: ${APP_KEY:-}
       APP_URL: ${APP_URL:?Set APP_URL in .env}
       FRONTEND_URL: ${FRONTEND_URL:?Set FRONTEND_URL in .env}
       DB_CONNECTION: mysql
