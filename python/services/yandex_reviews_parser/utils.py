@@ -1,3 +1,4 @@
+import os
 import time
 
 import undetected_chromedriver
@@ -17,8 +18,11 @@ class YandexParser:
         opts = undetected_chromedriver.ChromeOptions()
         opts.add_argument('--no-sandbox')
         opts.add_argument('--disable-dev-shm-usage')
-        opts.add_argument('headless')
+        opts.add_argument('--headless=new')
         opts.add_argument('--disable-gpu')
+        chrome_bin = os.environ.get('CHROME_BIN')
+        if chrome_bin:
+            opts.binary_location = chrome_bin
         driver = undetected_chromedriver.Chrome(options=opts)
         parser = Parser(driver)
         driver.get(url)
