@@ -63,6 +63,7 @@ jobs:
           context: .
           file: docker/php/Dockerfile
           push: false
+          load: true
           tags: yanparser-app:ci
 
       - name: Build web image
@@ -71,6 +72,7 @@ jobs:
           context: .
           file: docker/nginx/Dockerfile
           push: false
+          load: true
           tags: yanparser-web:ci
 
       - name: Build parser image
@@ -79,4 +81,5 @@ jobs:
           context: .
           file: docker/python/Dockerfile
           push: false
+          load: true
           tags: yanparser-parser:ci

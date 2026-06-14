@@ -30,7 +30,7 @@ COPY backend/composer.json backend/composer.lock* ./
 RUN composer install --no-dev --no-scripts --no-autoloader --prefer-dist
 
 COPY backend/ .
-RUN composer dump-autoload --optimize
+RUN composer dump-autoload --optimize --no-scripts
 
 RUN chown -R www-data:www-data storage bootstrap/cache
 
