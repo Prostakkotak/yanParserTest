@@ -31,7 +31,7 @@
     <div class="card reviews-section">
       <h2>Отзывы организации</h2>
 
-      <div v-if="reviewsLoading" class="muted">Загрузка...</div>
+      <div v-if="reviewsLoading && !organization" class="muted">Загрузка...</div>
 
       <p v-else-if="reviewsError" class="error">{{ reviewsError }}</p>
 
@@ -55,7 +55,16 @@
           </div>
         </div>
 
-        <p v-if="!reviews.length" class="muted reviews-empty">
+        <div v-if="isParsing" class="parser-loading">
+          <p>Загружаем отзывы с Яндекс.Карт…</p>
+          <p class="muted">Это может занять до минуты. Страница обновится автоматически.</p>
+        </div>
+
+        <p v-else-if="syncFailed" class="error">
+          {{ organization.sync_error || 'Не удалось загрузить отзывы.' }}
+        </p>
+
+        <p v-else-if="!reviews.length" class="muted reviews-empty">
           Отзывов пока нет.
         </p>
 
@@ -70,7 +79,7 @@
           </article>
         </div>
 
-        <div v-if="pagination.total > 0" class="pagination">
+        <div v-if="!isParsing && pagination.total > 0" class="pagination">
           <button
             class="btn btn-secondary"
             type="button"
@@ -102,11 +111,16 @@
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { fetchReviews } from '@/api/organization'
 import { fetchSettings, updateSettings } from '@/api/settings'
 
 const PER_PAGE = 10
+const POLL_INTERVAL_MS = 3000
+
+const SYNC_PENDING = 'pending'
+const SYNC_PROCESSING = 'processing'
+const SYNC_FAILED = 'failed'
 
 const yandexUrl = ref('')
 const settingsLoading = ref(false)
@@ -126,6 +140,14 @@ const pagination = reactive({
   per_page: PER_PAGE,
 })
 
+let pollTimer = null
+
+const isParsing = computed(() =>
+  [SYNC_PENDING, SYNC_PROCESSING].includes(organization.value?.sync_status),
+)
+
+const syncFailed = computed(() => organization.value?.sync_status === SYNC_FAILED)
+
 const paginationRange = computed(() => {
   if (!pagination.total) {
     return '0 из 0'
@@ -139,6 +161,28 @@ const paginationRange = computed(() => {
 function formatDate(value) {
   if (!value) return '—'
   return new Date(value).toLocaleDateString('ru-RU')
+}
+
+function stopPolling() {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
+}
+
+function startPolling() {
+  stopPolling()
+  pollTimer = setInterval(() => {
+    loadPage(pagination.current_page, { silent: true })
+  }, POLL_INTERVAL_MS)
+}
+
+function syncPolling() {
+  if (isParsing.value) {
+    startPolling()
+  } else {
+    stopPolling()
+  }
 }
 
 async function loadSettings() {
@@ -163,8 +207,13 @@ async function onSubmitSettings() {
 
   try {
     const data = await updateSettings({ yandex_url: yandexUrl.value })
-    settingsMessage.value = `${data.message} Загружено отзывов: ${data.reviews_synced ?? 0}.`
-    await loadPage(1)
+    settingsMessage.value = data.message
+    organization.value = {
+      ...(organization.value || {}),
+      ...data.organization,
+    }
+    syncPolling()
+    await loadPage(1, { silent: true })
   } catch (err) {
     settingsError.value =
       err.response?.data?.message || 'Не удалось сохранить настройки.'
@@ -173,18 +222,21 @@ async function onSubmitSettings() {
   }
 }
 
-async function loadPage(page = 1) {
-  reviewsLoading.value = true
+async function loadPage(page = 1, { silent = false } = {}) {
+  if (!silent) {
+    reviewsLoading.value = true
+  }
   reviewsError.value = ''
 
   try {
     const data = await fetchReviews(page, PER_PAGE)
     organization.value = data.organization
-    reviews.value = data.reviews.data
+    reviews.value = isParsing.value ? [] : data.reviews.data
     pagination.current_page = data.reviews.current_page
     pagination.last_page = data.reviews.last_page
-    pagination.total = data.reviews.total
+    pagination.total = isParsing.value ? 0 : data.reviews.total
     pagination.per_page = data.reviews.per_page
+    syncPolling()
   } catch (err) {
     if (err.response?.status === 404) {
       organization.value = null
@@ -192,17 +244,24 @@ async function loadPage(page = 1) {
       pagination.current_page = 1
       pagination.last_page = 1
       pagination.total = 0
+      stopPolling()
     } else {
       reviewsError.value =
         err.response?.data?.message || 'Не удалось загрузить отзывы.'
     }
   } finally {
-    reviewsLoading.value = false
+    if (!silent) {
+      reviewsLoading.value = false
+    }
   }
 }
 
 onMounted(async () => {
   await Promise.all([loadSettings(), loadPage()])
+})
+
+onUnmounted(() => {
+  stopPolling()
 })
 </script>
 
@@ -226,6 +285,14 @@ onMounted(async () => {
 .stats__label {
   color: #6b7280;
   font-size: 0.875rem;
+}
+
+.parser-loading {
+  margin-top: 1.5rem;
+  padding: 1.25rem;
+  border-radius: 8px;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
 }
 
 .reviews-empty {

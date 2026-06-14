@@ -21,7 +21,7 @@ class OrganizationController extends Controller
         }
 
         return response()->json([
-            'organization' => $organization,
+            'organization' => $this->organizationPayload($organization),
         ]);
     }
 
@@ -43,13 +43,24 @@ class OrganizationController extends Controller
             ->paginate($perPage);
 
         return response()->json([
-            'organization' => [
-                'name' => $organization->name,
-                'avg_rating' => $organization->avg_rating,
-                'ratings_count' => $organization->ratings_count,
-                'reviews_count' => $organization->reviews_count,
-            ],
+            'organization' => $this->organizationPayload($organization),
             'reviews' => $reviews,
         ]);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function organizationPayload(Organization $organization): array
+    {
+        return [
+            'name' => $organization->name,
+            'avg_rating' => $organization->avg_rating,
+            'ratings_count' => $organization->ratings_count,
+            'reviews_count' => $organization->reviews_count,
+            'sync_status' => $organization->sync_status,
+            'sync_error' => $organization->sync_error,
+            'last_synced_at' => $organization->last_synced_at,
+        ];
     }
 }

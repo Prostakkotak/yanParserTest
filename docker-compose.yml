@@ -71,5 +71,36 @@ services:
     depends_on:
       - app
 
+  queue:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile.dev
+    restart: unless-stopped
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      APP_NAME: ${APP_NAME:-YanParser}
+      APP_ENV: ${APP_ENV:-local}
+      APP_DEBUG: ${APP_DEBUG:-true}
+      APP_URL: ${APP_URL:-http://localhost:8080}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      DB_CONNECTION: mysql
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: ${DB_DATABASE:-yanparser}
+      DB_USERNAME: ${DB_USERNAME:-yanparser}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      SESSION_DRIVER: database
+      CACHE_STORE: database
+      QUEUE_CONNECTION: database
+      YANDEX_PARSER_URL: ${YANDEX_PARSER_URL:-http://parser:8080}
+      YANDEX_PARSER_TIMEOUT: ${YANDEX_PARSER_TIMEOUT:-300}
+    command: php artisan queue:work --sleep=3 --tries=1 --timeout=600
+    depends_on:
+      mysql:
+        condition: service_healthy
+      parser:
+        condition: service_started
+
 volumes:
   mysql_data:

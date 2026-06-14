@@ -11,7 +11,10 @@ if [ ! -d vendor ]; then
   composer install --prefer-dist --no-progress
 fi
 
-if [ -z "$APP_KEY" ]; then
+# Generate APP_KEY when missing or malformed in .env (not only when env var is empty)
+app_key_line=$(grep -m1 '^APP_KEY=' .env 2>/dev/null || true)
+app_key_value=${app_key_line#APP_KEY=}
+if [ -z "$app_key_value" ] || ! echo "$app_key_value" | grep -qE '^base64:[A-Za-z0-9+/]{40,}={0,2}$'; then
   php artisan key:generate --force
 fi
 

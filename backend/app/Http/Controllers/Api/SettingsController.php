@@ -4,18 +4,16 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Settings\UpdateOrganizationUrlRequest;
+use App\Jobs\SyncOrganizationReviews;
 use App\Models\Organization;
-use App\Services\Organization\OrganizationSyncService;
 use App\Services\YandexParser\YandexParserService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use RuntimeException;
 
 class SettingsController extends Controller
 {
     public function __construct(
         private readonly YandexParserService $parser,
-        private readonly OrganizationSyncService $syncService,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -34,34 +32,21 @@ class SettingsController extends Controller
         $yandexUrl = $request->validated('yandex_url');
         $orgId = $this->parser->extractOrgIdFromUrl($yandexUrl);
 
-        try {
-            $parsed = $this->parser->parseOrganization($orgId);
-        } catch (RuntimeException $exception) {
-            return response()->json([
-                'message' => $exception->getMessage(),
-            ], 503);
-        }
-
-        if (isset($parsed['error'])) {
-            return response()->json([
-                'message' => $parsed['error'],
-            ], 422);
-        }
-
         $organization = Organization::query()->updateOrCreate(
             ['user_id' => $request->user()->id],
             [
                 'yandex_url' => $yandexUrl,
                 'yandex_org_id' => $orgId,
+                'sync_status' => Organization::SYNC_PENDING,
+                'sync_error' => null,
             ]
         );
 
-        $organization = $this->syncService->sync($organization, $parsed);
+        SyncOrganizationReviews::dispatch($organization->id);
 
         return response()->json([
-            'message' => 'Настройки сохранены. Данные организации обновлены.',
-            'organization' => $organization,
-            'reviews_synced' => $organization->reviews_count,
+            'message' => 'Настройки сохранены. Загрузка отзывов запущена.',
+            'organization' => $organization->fresh(),
         ]);
     }
 }
