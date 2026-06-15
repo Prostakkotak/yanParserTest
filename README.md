@@ -6,7 +6,7 @@ Vue 3 (TS/Tailwind/Composition API) + L aravel + Python (Selenium для пар�
 
 [http://153.75.235.2/](http://153.75.235.2/) - прям вот по айпишнику в браузере (домен покупать за 15 долларов не хочеца)
 
-Кинет в логин, логпароль: "[admin@example.com"](mailto:admin@example.com) / "password"
+Кинет в логин, логпароль: "[admin@example.com"](mailto:admin@example.com) / "L18DnAxwaEXfn6afPwKfPM6Z"
 
 ## Как устроено
 
