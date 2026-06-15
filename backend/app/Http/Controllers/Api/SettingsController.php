@@ -49,4 +49,31 @@ class SettingsController extends Controller
             'organization' => $organization->fresh(),
         ]);
     }
+
+    public function reparse(Request $request): JsonResponse
+    {
+        $organization = Organization::query()
+            ->where('user_id', $request->user()->id)
+            ->first();
+
+        if (! $organization) {
+            return response()->json(['message' => 'Организация не настроена.'], 404);
+        }
+
+        if ($organization->isSyncing()) {
+            return response()->json(['message' => 'Загрузка отзывов уже выполняется.'], 409);
+        }
+
+        $organization->update([
+            'sync_status' => Organization::SYNC_PENDING,
+            'sync_error' => null,
+        ]);
+
+        SyncOrganizationReviews::dispatch($organization->id);
+
+        return response()->json([
+            'message' => 'Перепарсинг отзывов запущен.',
+            'organization' => $organization->fresh(),
+        ]);
+    }
 }

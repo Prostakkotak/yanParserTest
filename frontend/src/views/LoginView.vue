@@ -1,33 +1,45 @@
 <template>
-  <div class="container">
-    <div class="card login">
-      <h1>Вход</h1>
-      <p class="muted">Используйте учётную запись администратора.</p>
+  <div class="mx-auto max-w-4xl px-4 py-3">
+    <UCard class="mx-auto mt-8 max-w-[420px]">
+      <h1 class="mb-1.5 text-xl font-semibold">Вход</h1>
+      <p class="mb-4 text-sm text-gray-500">Используйте учётную запись администратора.</p>
 
       <form @submit.prevent="onSubmit">
-        <label class="field">
-          <span>Email</span>
-          <input v-model="email" type="email" autocomplete="username" required />
-        </label>
+        <UField label="Email">
+          <UInput
+            v-model="email"
+            type="email"
+            autocomplete="username"
+            required
+          />
+        </UField>
 
-        <label class="field">
-          <span>Пароль</span>
-          <input v-model="password" type="password" autocomplete="current-password" required />
-        </label>
+        <UField label="Пароль">
+          <UInput
+            v-model="password"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+        </UField>
 
-        <p v-if="auth.error" class="error">{{ auth.error }}</p>
+        <p v-if="auth.error" class="mb-3 text-sm text-red-600">{{ auth.error }}</p>
 
-        <button class="btn" type="submit" :disabled="auth.loading">
+        <UButton type="submit" :loading="auth.loading" :disabled="auth.loading">
           {{ auth.loading ? 'Вход...' : 'Войти' }}
-        </button>
+        </UButton>
       </form>
-    </div>
+    </UCard>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import UButton from '@/components/ui/UButton.vue'
+import UCard from '@/components/ui/UCard.vue'
+import UField from '@/components/ui/UField.vue'
+import UInput from '@/components/ui/UInput.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const auth = useAuthStore()
@@ -49,10 +61,3 @@ async function onSubmit() {
   }
 }
 </script>
-
-<style scoped>
-.login {
-  max-width: 420px;
-  margin: 4rem auto;
-}
-</style>

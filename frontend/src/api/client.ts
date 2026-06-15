@@ -12,7 +12,7 @@ const client = axios.create({
   },
 })
 
-export async function ensureCsrfCookie() {
+export async function ensureCsrfCookie(): Promise<void> {
   await axios.get('/sanctum/csrf-cookie', {
     withCredentials: true,
   })

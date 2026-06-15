@@ -4,8 +4,19 @@ from dataclasses import asdict
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import NoSuchElementException
 
+from services.yandex_reviews_parser.exceptions import MarkupChangedError, PageUnavailableError
 from services.yandex_reviews_parser.helpers import ParserHelper
 from services.yandex_reviews_parser.storage import Review, Info
+
+REVIEW_CARD_CLASS = "business-reviews-card-view__review"
+
+# Несколько кандидатов на контейнер списка отзывов: Яндекс периодически
+# переименовывает классы, поэтому отсутствие всех сразу трактуем как смену вёрстки.
+REVIEWS_CONTAINER_SELECTORS = (
+    ".business-reviews-card-view",
+    ".business-review-view",
+    "[class*='reviews-card-view']",
+)
 
 
 class Parser:
@@ -24,7 +35,7 @@ class Parser:
             elem
         )
         time.sleep(1)
-        new_elem = self.driver.find_elements(By.CLASS_NAME, "business-reviews-card-view__review")[-1]
+        new_elem = self.driver.find_elements(By.CLASS_NAME, REVIEW_CARD_CLASS)[-1]
         if elem == new_elem:
             return
         self.__scroll_to_bottom(new_elem)
@@ -169,20 +180,32 @@ class Parser:
         return asdict(item)
 
     def __get_data_reviews(self) -> list:
+        elements = self.driver.find_elements(By.CLASS_NAME, REVIEW_CARD_CLASS)
+
+        if not elements:
+            # Карточек нет. Если на странице отсутствует и сам контейнер списка —
+            # значит изменились классы вёрстки, а не «у организации нет отзывов».
+            if not self.__reviews_container_present():
+                raise MarkupChangedError()
+            return []
+
         reviews = []
-        elements = self.driver.find_elements(By.CLASS_NAME, "business-reviews-card-view__review")
-        if len(elements) > 1:
-            self.__scroll_to_bottom(elements[-1])
-            self.__expand_review_texts()
-            elements = self.driver.find_elements(By.CLASS_NAME, "business-reviews-card-view__review")
-            for elem in elements:
-                reviews.append(self.__get_data_item(elem))
+        self.__scroll_to_bottom(elements[-1])
+        self.__expand_review_texts()
+        elements = self.driver.find_elements(By.CLASS_NAME, REVIEW_CARD_CLASS)
+        for elem in elements:
+            reviews.append(self.__get_data_item(elem))
         return reviews
 
-    def __isinstance_page(self):
+    def __reviews_container_present(self) -> bool:
+        for selector in REVIEWS_CONTAINER_SELECTORS:
+            if self.driver.find_elements(By.CSS_SELECTOR, selector):
+                return True
+        return False
+
+    def __is_page_loaded(self) -> bool:
         try:
-            xpath_name = ".//h1[@class='orgpage-header-view__header']"
-            name = self.driver.find_element(By.XPATH, xpath_name).text
+            self.driver.find_element(By.XPATH, ".//h1[@class='orgpage-header-view__header']")
             return True
         except NoSuchElementException:
             return False
@@ -209,8 +232,8 @@ class Parser:
             ]
         }
         """
-        if not self.__isinstance_page():
-            return {'error': 'Страница не найдена'}
+        if not self.__is_page_loaded():
+            raise PageUnavailableError()
         return {'company_info': self.__get_data_campaign(), 'company_reviews': self.__get_data_reviews()}
 
     def parse_reviews(self) -> dict:
@@ -230,8 +253,8 @@ class Parser:
         }
 
         """
-        if not self.__isinstance_page():
-            return {'error': 'Страница не найдена'}
+        if not self.__is_page_loaded():
+            raise PageUnavailableError()
         return {'company_reviews': self.__get_data_reviews()}
 
     def parse_company_info(self) -> dict:
@@ -248,6 +271,6 @@ class Parser:
                 }
         }
         """
-        if not self.__isinstance_page():
-            return {'error': 'Страница не найдена'}
+        if not self.__is_page_loaded():
+            raise PageUnavailableError()
         return {'company_info': self.__get_data_campaign()}

@@ -14,6 +14,7 @@ Route::prefix('auth')->group(function () {
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/settings', [SettingsController::class, 'show']);
     Route::put('/settings', [SettingsController::class, 'update']);
+    Route::post('/settings/reparse', [SettingsController::class, 'reparse']);
 
     Route::get('/organization', [OrganizationController::class, 'show']);
     Route::get('/organization/reviews', [OrganizationController::class, 'reviews']);

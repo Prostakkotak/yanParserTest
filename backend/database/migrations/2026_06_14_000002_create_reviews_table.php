@@ -19,6 +19,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->unique(['organization_id', 'external_id']);
+            $table->index(['organization_id', 'reviewed_at']);
         });
     }
 

@@ -1,24 +1,23 @@
 <template>
-  <div class="layout">
-    <header class="layout__header">
-      <div class="container layout__header-inner">
-        <strong>{{ appName }}</strong>
-        <nav class="layout__nav">
-          <button class="btn btn-secondary" type="button" @click="onLogout">
-            Выйти
-          </button>
+  <div class="min-h-screen">
+    <header class="mb-3 border-b border-gray-200 bg-white">
+      <div class="mx-auto flex max-w-4xl items-center justify-between gap-3 px-4 py-2.5">
+        <strong class="text-base">{{ appName }}</strong>
+        <nav>
+          <UButton variant="secondary" @click="onLogout">Выйти</UButton>
         </nav>
       </div>
     </header>
 
-    <main class="container">
+    <main class="mx-auto max-w-4xl px-4 py-3">
       <RouterView />
     </main>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { RouterView, useRouter } from 'vue-router'
+import UButton from '@/components/ui/UButton.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const appName = import.meta.env.VITE_APP_NAME || 'YanParser'
@@ -30,24 +29,3 @@ async function onLogout() {
   router.push({ name: 'login' })
 }
 </script>
-
-<style scoped>
-.layout__header {
-  background: #fff;
-  border-bottom: 1px solid #e5e7eb;
-  margin-bottom: 1.5rem;
-}
-
-.layout__header-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.layout__nav {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-</style>

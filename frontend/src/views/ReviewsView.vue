@@ -1,138 +1,167 @@
 <template>
-  <section>
-    <div class="card">
-      <h1>Настройки</h1>
-      <p class="muted">
+  <section class="space-y-3">
+    <UCard>
+      <h1 class="mb-1.5 text-xl font-semibold">Настройки</h1>
+      <p class="mb-4 text-sm text-gray-500">
         Укажите ссылку на карточку организации в Яндекс.Картах.
       </p>
 
       <form @submit.prevent="onSubmitSettings">
-        <label class="field">
-          <span>Ссылка на организацию</span>
-          <input
+        <UField label="Ссылка на организацию">
+          <UInput
             v-model="yandexUrl"
             type="url"
             placeholder="https://yandex.ru/maps/org/... или https://yandex.com/maps/org/..."
             required
             :disabled="settingsLoading"
           />
-        </label>
+        </UField>
 
-        <p v-if="settingsMessage" class="muted">{{ settingsMessage }}</p>
-        <p v-if="settingsError" class="error">{{ settingsError }}</p>
-        <p v-if="settingsLoadError" class="error">{{ settingsLoadError }}</p>
+        <p v-if="settingsMessage" class="mb-2 text-sm text-gray-500">{{ settingsMessage }}</p>
+        <p v-if="settingsError" class="mb-2 text-sm text-red-600">{{ settingsError }}</p>
+        <p v-if="settingsLoadError" class="mb-2 text-sm text-red-600">{{ settingsLoadError }}</p>
 
-        <button class="btn" type="submit" :disabled="settingsSaving">
-          {{ settingsSaving ? 'Сохранение...' : 'Сохранить' }}
-        </button>
+        <div class="flex flex-wrap gap-2">
+          <UButton
+            type="submit"
+            :loading="settingsSaving"
+            :disabled="!canSave || settingsSaving"
+          >
+            {{ settingsSaving ? 'Сохранение...' : 'Сохранить' }}
+          </UButton>
+          <UButton
+            type="button"
+            variant="secondary"
+            :loading="settingsReparsing"
+            :disabled="!canReparse || settingsReparsing"
+            @click="onReparse"
+          >
+            {{ settingsReparsing ? 'Запуск...' : 'Перепарсить' }}
+          </UButton>
+        </div>
       </form>
-    </div>
+    </UCard>
 
-    <div class="card reviews-section">
-      <h2>Отзывы организации</h2>
+    <UCard>
+      <h2 class="mb-1.5 text-lg font-semibold">Отзывы организации</h2>
 
-      <div v-if="reviewsLoading && !organization" class="muted">Загрузка...</div>
+      <p v-if="reviewsError" class="text-sm text-red-600">{{ reviewsError }}</p>
 
-      <p v-else-if="reviewsError" class="error">{{ reviewsError }}</p>
-
-      <template v-else-if="organization">
-        <div class="stats">
-          <div>
-            <div class="stats__label">Название</div>
-            <div>{{ organization.name || '—' }}</div>
-          </div>
-          <div>
-            <div class="stats__label">Средний рейтинг</div>
-            <div>{{ organization.avg_rating ?? '—' }}</div>
-          </div>
-          <div>
-            <div class="stats__label">Оценок</div>
-            <div>{{ organization.ratings_count ?? '—' }}</div>
-          </div>
-          <div>
-            <div class="stats__label">Отзывов</div>
-            <div>{{ organization.reviews_count ?? '—' }}</div>
+      <template v-else-if="showStatsSection">
+        <div class="mt-2.5 grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-x-3 gap-y-2">
+          <div v-for="item in statItems" :key="item.label">
+            <div class="mb-1 text-[0.8125rem] text-gray-500">{{ item.label }}</div>
+            <USkeleton v-if="item.loading" :wide="item.wide" />
+            <div v-else>{{ item.value }}</div>
           </div>
         </div>
 
-        <div v-if="isParsing" class="parser-loading">
-          <p>Загружаем отзывы с Яндекс.Карт…</p>
-          <p class="muted">Это может занять до минуты. Страница обновится автоматически.</p>
-        </div>
-
-        <p v-else-if="syncFailed" class="error">
-          {{ organization.sync_error || 'Не удалось загрузить отзывы.' }}
-        </p>
-
-        <p v-else-if="!reviews.length" class="muted reviews-empty">
-          Отзывов пока нет.
-        </p>
-
-        <div v-else class="reviews">
-          <article v-for="review in reviews" :key="review.id" class="card review">
-            <div class="review__meta">
-              <strong>{{ review.author || 'Аноним' }}</strong>
-              <span class="muted">{{ formatDate(review.reviewed_at) }}</span>
-              <span>★ {{ review.rating ?? '—' }}</span>
-            </div>
-            <p>{{ review.text || 'Без текста' }}</p>
-          </article>
-        </div>
-
-        <div v-if="!isParsing && pagination.total > 0" class="pagination">
-          <button
-            class="btn btn-secondary"
-            type="button"
-            :disabled="pagination.current_page <= 1 || reviewsLoading"
-            @click="loadPage(pagination.current_page - 1)"
+        <template v-if="organization">
+          <div
+            v-if="isParsing"
+            class="mt-3 rounded-md border border-dashed border-gray-300 bg-gray-50 p-3"
           >
-            Назад
-          </button>
-          <span class="muted">
-            {{ paginationRange }} · страница {{ pagination.current_page }} из
-            {{ pagination.last_page }}
-          </span>
-          <button
-            class="btn btn-secondary"
-            type="button"
-            :disabled="pagination.current_page >= pagination.last_page || reviewsLoading"
-            @click="loadPage(pagination.current_page + 1)"
+            <p class="text-sm">Загружаем отзывы с Яндекс.Карт…</p>
+            <p class="mt-1 text-sm text-gray-500">
+              Это может занять до минуты. Страница обновится автоматически.
+            </p>
+          </div>
+
+          <p v-else-if="syncFailed" class="mt-2.5 text-sm text-red-600">
+            {{ organization.sync_error || 'Не удалось загрузить отзывы.' }}
+          </p>
+
+          <p v-else-if="!reviews.length" class="mt-2.5 text-sm text-gray-500">
+            Отзывов пока нет.
+          </p>
+
+          <div v-else class="mt-2.5 grid gap-2">
+            <article
+              v-for="review in reviews"
+              :key="review.id"
+              class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2.5"
+            >
+              <div class="mb-1.5 flex flex-wrap gap-2 text-sm">
+                <strong>{{ review.author || 'Аноним' }}</strong>
+                <span class="text-gray-500">{{ formatDate(review.reviewed_at) }}</span>
+                <span>★ {{ review.rating ?? '—' }}</span>
+              </div>
+              <p class="text-[0.9375rem]">{{ review.text || 'Без текста' }}</p>
+            </article>
+          </div>
+
+          <div
+            v-if="!isParsing && pagination.total > 0"
+            class="mt-3 flex flex-wrap items-center gap-2.5"
           >
-            Вперёд
-          </button>
-        </div>
+            <UButton
+              variant="secondary"
+              :disabled="pagination.current_page <= 1 || reviewsLoading"
+              @click="loadPage(pagination.current_page - 1)"
+            >
+              Назад
+            </UButton>
+            <span class="text-sm text-gray-500">
+              {{ paginationRange }} · страница {{ pagination.current_page }} из
+              {{ pagination.last_page }}
+            </span>
+            <UButton
+              variant="secondary"
+              :disabled="pagination.current_page >= pagination.last_page || reviewsLoading"
+              @click="loadPage(pagination.current_page + 1)"
+            >
+              Вперёд
+            </UButton>
+          </div>
+        </template>
       </template>
 
-      <p v-else class="muted">
+      <p v-else class="text-sm text-gray-500">
         Организация ещё не настроена. Укажите ссылку выше и сохраните настройки.
       </p>
-    </div>
+    </UCard>
   </section>
 </template>
 
-<script setup>
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { fetchReviews } from '@/api/organization'
-import { fetchSettings, updateSettings } from '@/api/settings'
+import { fetchSettings, reparseSettings, updateSettings } from '@/api/settings'
+import UButton from '@/components/ui/UButton.vue'
+import UCard from '@/components/ui/UCard.vue'
+import UField from '@/components/ui/UField.vue'
+import UInput from '@/components/ui/UInput.vue'
+import USkeleton from '@/components/ui/USkeleton.vue'
+import type { Organization, Review, SyncStatus } from '@/types/api'
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError'
 
-const PER_PAGE = 10
+const PER_PAGE = 50
 const POLL_INTERVAL_MS = 3000
 
-const SYNC_PENDING = 'pending'
-const SYNC_PROCESSING = 'processing'
-const SYNC_FAILED = 'failed'
+const SYNC_PENDING: SyncStatus = 'pending'
+const SYNC_PROCESSING: SyncStatus = 'processing'
+const SYNC_FAILED: SyncStatus = 'failed'
+
+const STAT_FIELDS = [
+  { label: 'Название', key: 'name' as const, wide: true },
+  { label: 'Средний рейтинг', key: 'avg_rating' as const, wide: false },
+  { label: 'Оценок', key: 'ratings_count' as const, wide: false },
+  { label: 'Отзывов', key: 'reviews_count' as const, wide: false },
+]
 
 const yandexUrl = ref('')
+const savedYandexUrl = ref('')
 const settingsLoading = ref(false)
 const settingsSaving = ref(false)
+const settingsReparsing = ref(false)
 const settingsMessage = ref('')
 const settingsError = ref('')
 const settingsLoadError = ref('')
 
 const reviewsLoading = ref(false)
 const reviewsError = ref('')
-const organization = ref(null)
-const reviews = ref([])
+const organization = ref<Organization | null>(null)
+const reviews = ref<Review[]>([])
 const pagination = reactive({
   current_page: 1,
   last_page: 1,
@@ -140,13 +169,59 @@ const pagination = reactive({
   per_page: PER_PAGE,
 })
 
-let pollTimer = null
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
-const isParsing = computed(() =>
-  [SYNC_PENDING, SYNC_PROCESSING].includes(organization.value?.sync_status),
-)
+const PARSING_STATUSES: SyncStatus[] = [SYNC_PENDING, SYNC_PROCESSING]
+
+const isParsing = computed(() => {
+  const status = organization.value?.sync_status
+  return status !== undefined && PARSING_STATUSES.includes(status)
+})
 
 const syncFailed = computed(() => organization.value?.sync_status === SYNC_FAILED)
+
+const isUrlSaved = computed(
+  () =>
+    savedYandexUrl.value !== '' &&
+    yandexUrl.value.trim() === savedYandexUrl.value.trim(),
+)
+
+const canSave = computed(
+  () => !settingsLoading.value && !isUrlSaved.value && yandexUrl.value.trim() !== '',
+)
+
+const canReparse = computed(
+  () =>
+    savedYandexUrl.value !== '' &&
+    isUrlSaved.value &&
+    !isParsing.value &&
+    !settingsSaving.value,
+)
+
+const showStatsSection = computed(
+  () => (reviewsLoading.value && !organization.value) || !!organization.value,
+)
+
+const statItems = computed(() => {
+  const initialLoading = reviewsLoading.value && !organization.value
+
+  return STAT_FIELDS.map(({ label, key, wide }) => {
+    if (initialLoading) {
+      return { label, loading: true, wide }
+    }
+
+    const raw = organization.value?.[key]
+    const loading =
+      isParsing.value && (raw === null || raw === undefined || raw === '')
+
+    return {
+      label,
+      wide,
+      loading,
+      value: raw ?? '—',
+    }
+  })
+})
 
 const paginationRange = computed(() => {
   if (!pagination.total) {
@@ -158,26 +233,32 @@ const paginationRange = computed(() => {
   return `${from}–${to} из ${pagination.total}`
 })
 
-function formatDate(value) {
+watch(isParsing, (parsing, wasParsing) => {
+  if (wasParsing && !parsing) {
+    settingsMessage.value = ''
+  }
+})
+
+function formatDate(value: string | null | undefined): string {
   if (!value) return '—'
   return new Date(value).toLocaleDateString('ru-RU')
 }
 
-function stopPolling() {
+function stopPolling(): void {
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = null
   }
 }
 
-function startPolling() {
+function startPolling(): void {
   stopPolling()
   pollTimer = setInterval(() => {
     loadPage(pagination.current_page, { silent: true })
   }, POLL_INTERVAL_MS)
 }
 
-function syncPolling() {
+function syncPolling(): void {
   if (isParsing.value) {
     startPolling()
   } else {
@@ -185,28 +266,63 @@ function syncPolling() {
   }
 }
 
-async function loadSettings() {
+function applySavedUrl(url: string): void {
+  const normalized = url.trim()
+  savedYandexUrl.value = normalized
+  yandexUrl.value = normalized
+}
+
+async function loadSettings(): Promise<void> {
   settingsLoading.value = true
   settingsLoadError.value = ''
 
   try {
     const settingsOrganization = await fetchSettings()
-    yandexUrl.value = settingsOrganization?.yandex_url || ''
+    applySavedUrl(settingsOrganization?.yandex_url || '')
   } catch (err) {
-    settingsLoadError.value =
-      err.response?.data?.message || 'Не удалось загрузить настройки.'
+    settingsLoadError.value = getApiErrorMessage(err, 'Не удалось загрузить настройки.')
   } finally {
     settingsLoading.value = false
   }
 }
 
-async function onSubmitSettings() {
+async function onSubmitSettings(): Promise<void> {
+  if (!canSave.value) {
+    return
+  }
+
   settingsSaving.value = true
   settingsMessage.value = ''
   settingsError.value = ''
 
   try {
-    const data = await updateSettings({ yandex_url: yandexUrl.value })
+    const data = await updateSettings({ yandex_url: yandexUrl.value.trim() })
+    settingsMessage.value = data.message
+    applySavedUrl(data.organization.yandex_url || yandexUrl.value.trim())
+    organization.value = {
+      ...(organization.value || {}),
+      ...data.organization,
+    }
+    syncPolling()
+    await loadPage(1, { silent: true })
+  } catch (err) {
+    settingsError.value = getApiErrorMessage(err, 'Не удалось сохранить настройки.')
+  } finally {
+    settingsSaving.value = false
+  }
+}
+
+async function onReparse(): Promise<void> {
+  if (!canReparse.value) {
+    return
+  }
+
+  settingsReparsing.value = true
+  settingsMessage.value = ''
+  settingsError.value = ''
+
+  try {
+    const data = await reparseSettings()
     settingsMessage.value = data.message
     organization.value = {
       ...(organization.value || {}),
@@ -215,14 +331,13 @@ async function onSubmitSettings() {
     syncPolling()
     await loadPage(1, { silent: true })
   } catch (err) {
-    settingsError.value =
-      err.response?.data?.message || 'Не удалось сохранить настройки.'
+    settingsError.value = getApiErrorMessage(err, 'Не удалось запустить перепарсинг.')
   } finally {
-    settingsSaving.value = false
+    settingsReparsing.value = false
   }
 }
 
-async function loadPage(page = 1, { silent = false } = {}) {
+async function loadPage(page = 1, { silent = false } = {}): Promise<void> {
   if (!silent) {
     reviewsLoading.value = true
   }
@@ -238,7 +353,7 @@ async function loadPage(page = 1, { silent = false } = {}) {
     pagination.per_page = data.reviews.per_page
     syncPolling()
   } catch (err) {
-    if (err.response?.status === 404) {
+    if (getApiErrorStatus(err) === 404) {
       organization.value = null
       reviews.value = []
       pagination.current_page = 1
@@ -246,8 +361,7 @@ async function loadPage(page = 1, { silent = false } = {}) {
       pagination.total = 0
       stopPolling()
     } else {
-      reviewsError.value =
-        err.response?.data?.message || 'Не удалось загрузить отзывы.'
+      reviewsError.value = getApiErrorMessage(err, 'Не удалось загрузить отзывы.')
     }
   } finally {
     if (!silent) {
@@ -264,59 +378,3 @@ onUnmounted(() => {
   stopPolling()
 })
 </script>
-
-<style scoped>
-.reviews-section {
-  margin-top: 1rem;
-}
-
-.reviews-section h2 {
-  margin: 0 0 0.5rem;
-  font-size: 1.25rem;
-}
-
-.stats {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.stats__label {
-  color: #6b7280;
-  font-size: 0.875rem;
-}
-
-.parser-loading {
-  margin-top: 1.5rem;
-  padding: 1.25rem;
-  border-radius: 8px;
-  background: #f9fafb;
-  border: 1px dashed #d1d5db;
-}
-
-.reviews-empty {
-  margin-top: 1rem;
-}
-
-.reviews {
-  display: grid;
-  gap: 1rem;
-  margin-top: 1rem;
-}
-
-.review__meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  margin-bottom: 0.5rem;
-}
-
-.pagination {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  margin-top: 1rem;
-  flex-wrap: wrap;
-}
-</style>

@@ -35,7 +35,7 @@ class OrganizationController extends Controller
             return response()->json(['message' => 'Организация не настроена.'], 404);
         }
 
-        $perPage = min(max((int) $request->query('per_page', 10), 1), 50);
+        $perPage = min(max((int) $request->query('per_page', 50), 1), 50);
 
         $reviews = Review::query()
             ->where('organization_id', $organization->id)

@@ -1,9 +1,16 @@
+import logging
 import os
 import time
 
 import undetected_chromedriver
+from selenium.common.exceptions import WebDriverException
 
+from services.yandex_reviews_parser.exceptions import DriverError, ParserError
 from services.yandex_reviews_parser.parsers import Parser
+
+logger = logging.getLogger(__name__)
+
+PAGE_LOAD_DELAY = int(os.environ.get("PARSER_PAGE_DELAY", "4"))
 
 
 class YandexParser:
@@ -13,8 +20,7 @@ class YandexParser:
         """
         self.id_yandex = id_yandex
 
-    def __open_page(self):
-        url: str = 'https://yandex.ru/maps/org/{}/reviews/'.format(str(self.id_yandex))
+    def __build_driver(self):
         opts = undetected_chromedriver.ChromeOptions()
         opts.add_argument('--no-sandbox')
         opts.add_argument('--disable-dev-shm-usage')
@@ -23,34 +29,45 @@ class YandexParser:
         chrome_bin = os.environ.get('CHROME_BIN')
         if chrome_bin:
             opts.binary_location = chrome_bin
-        driver = undetected_chromedriver.Chrome(options=opts)
-        parser = Parser(driver)
-        driver.get(url)
-        return parser
+        return undetected_chromedriver.Chrome(options=opts)
 
     def parse(self, type_parse: str = 'default') -> dict:
         """
-        Функция получения данных в виде
-        @param type_parse: Тип данных, принимает значения:
-            default - получает все данные по аккаунту
-            company - получает данные по компании
-            reviews - получает данные по отчетам
-        @return: Данные по запрошенному типу
+        Получить данные организации.
+
+        @param type_parse: default — компания и отзывы, company — только компания,
+            reviews — только отзывы.
+        @return: данные либо {'error': '...'} с понятным сообщением об ошибке.
         """
-        result: dict = {}
-        page = self.__open_page()
-        time.sleep(4)
+        url = f'https://yandex.ru/maps/org/{self.id_yandex}/reviews/'
+
         try:
-            if type_parse == 'default':
-                result = page.parse_all_data()
+            driver = self.__build_driver()
+        except WebDriverException:
+            logger.exception("Не удалось запустить браузер для %s", self.id_yandex)
+            return {'error': DriverError().message}
+
+        try:
+            driver.get(url)
+            time.sleep(PAGE_LOAD_DELAY)
+            page = Parser(driver)
+
             if type_parse == 'company':
-                result = page.parse_company_info()
+                return page.parse_company_info()
             if type_parse == 'reviews':
-                result = page.parse_reviews()
-        except Exception as e:
-            print(e)
-            return result
+                return page.parse_reviews()
+            return page.parse_all_data()
+        except ParserError as exc:
+            logger.warning("Парсинг %s не удался: %s", self.id_yandex, exc.message)
+            return {'error': exc.message}
+        except WebDriverException:
+            logger.exception("Ошибка драйвера при парсинге %s", self.id_yandex)
+            return {'error': DriverError().message}
+        except Exception:  # noqa: BLE001 — не даём упасть в 500, отдаём понятную ошибку
+            logger.exception("Непредвиденная ошибка при парсинге %s", self.id_yandex)
+            return {'error': ParserError().message}
         finally:
-            page.driver.close()
-            page.driver.quit()
-            return result
+            try:
+                driver.quit()
+            except Exception:  # noqa: BLE001 — закрытие драйвера не должно ломать ответ
+                logger.debug("Не удалось корректно закрыть драйвер", exc_info=True)

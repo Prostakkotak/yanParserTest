@@ -1,32 +1,33 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import * as authApi from '@/api/auth'
+import type { LoginCredentials, User } from '@/types/api'
+import { getApiErrorMessage, getApiErrorStatus } from '@/utils/apiError'
 
 export const useAuthStore = defineStore('auth', () => {
-  const user = ref(null)
+  const user = ref<User | null>(null)
   const initialized = ref(false)
   const loading = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
 
   const isAuthenticated = computed(() => Boolean(user.value))
 
-  async function bootstrap() {
+  async function bootstrap(): Promise<void> {
     try {
       user.value = await authApi.fetchUser()
     } catch (err) {
       user.value = null
 
-      const status = err.response?.status
+      const status = getApiErrorStatus(err)
       if (status && status !== 401 && status !== 419) {
-        error.value =
-          err.response?.data?.message || 'Не удалось проверить авторизацию.'
+        error.value = getApiErrorMessage(err, 'Не удалось проверить авторизацию.')
       }
     } finally {
       initialized.value = true
     }
   }
 
-  async function login(credentials) {
+  async function login(credentials: LoginCredentials): Promise<boolean> {
     loading.value = true
     error.value = null
 
@@ -35,14 +36,14 @@ export const useAuthStore = defineStore('auth', () => {
       user.value = data.user
       return true
     } catch (err) {
-      error.value = err.response?.data?.message || 'Не удалось войти.'
+      error.value = getApiErrorMessage(err, 'Не удалось войти.')
       return false
     } finally {
       loading.value = false
     }
   }
 
-  async function logout() {
+  async function logout(): Promise<void> {
     await authApi.logout()
     user.value = null
   }
